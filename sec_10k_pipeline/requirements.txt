@@ -1,0 +1,8 @@
+beautifulsoup4>=4.12.3
+lxml>=5.2.1
+pandas>=2.2.2
+python-dotenv>=1.0.1
+requests>=2.32.3
+SQLAlchemy>=2.0.31
+tqdm>=4.66.4
+pytest>=8.2.2
