@@ -50,6 +50,7 @@ def main() -> None:
     print("SEC 10-K table extraction complete")
     print(f"Company: {filing.company_name}")
     print(f"Ticker: {filing.ticker}")
+    print(f"Filing ID: {filing_id}")
     print(f"CIK: {filing.cik}")
     print(f"Filing date: {filing.filing_date}")
     print(f"Accession number: {filing.accession_number}")
@@ -58,6 +59,7 @@ def main() -> None:
     if args.include_xbrl:
         print(f"Supplemental XBRL facts stored: {xbrl_count}")
     print(f"Database: {args.db}")
+    print("Catalog view: table_catalog_enriched")
 
 
 if __name__ == "__main__":

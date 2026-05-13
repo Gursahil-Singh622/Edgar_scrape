@@ -17,6 +17,7 @@ from sqlalchemy import (
     func,
     inspect,
     select,
+    text,
 )
 from sqlalchemy.engine import Engine
 
@@ -86,6 +87,7 @@ class Database:
         self.db_path = db_path
         self.engine = create_engine(_connection_url(db_path), future=True)
         metadata.create_all(self.engine)
+        self._create_catalog_view()
 
     def insert_filing(self, filing: FilingMetadata) -> int:
         with self.engine.begin() as conn:
@@ -159,6 +161,41 @@ class Database:
         unmatched = [name for name in table_names if name not in catalog_names]
         if unmatched:
             raise RuntimeError(f"Extracted SQL tables have no catalog row: {unmatched}")
+
+    def _create_catalog_view(self) -> None:
+        """Create an analyst-friendly catalog that carries filing identity on every row."""
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    CREATE VIEW IF NOT EXISTS table_catalog_enriched AS
+                    SELECT
+                        c.catalog_id,
+                        c.filing_id,
+                        f.ticker,
+                        f.cik,
+                        f.company_name,
+                        f.form_type,
+                        f.fiscal_year,
+                        f.filing_date,
+                        f.accession_number,
+                        c.table_number,
+                        c.sql_table_name,
+                        c.table_title_guess,
+                        c.section_guess,
+                        c.table_type_guess,
+                        c.financial_statement_flag,
+                        c.row_count,
+                        c.column_count,
+                        c.source_order,
+                        c.html_table_hash,
+                        c.extraction_notes,
+                        c.created_at
+                    FROM table_catalog c
+                    JOIN filings f ON f.filing_id = c.filing_id
+                    """
+                )
+            )
 
     def _unique_table_name(self, table_name: str, conn: Any) -> str:
         inspector = inspect(conn)

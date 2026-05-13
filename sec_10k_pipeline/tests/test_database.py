@@ -1,4 +1,5 @@
 import pandas as pd
+from sqlalchemy import text
 
 from database import Database
 from filing_finder import FilingMetadata
@@ -43,6 +44,25 @@ def test_catalog_row_creation_and_sequential_numbering(tmp_path):
     names = db.save_extracted_tables(filing_id, "AAPL", 2023, [_table(1), _table(2)])
     assert names == ["aapl_2023_10k_t001", "aapl_2023_10k_t002"]
     db.validate_catalog(filing_id, names)
+
+
+def test_enriched_catalog_view_includes_filing_identity(tmp_path):
+    db = Database(str(tmp_path / "test.db"))
+    filing_id = db.insert_filing(_filing())
+    db.save_extracted_tables(filing_id, "AAPL", 2023, [_table(1)])
+    with db.engine.connect() as conn:
+        row = conn.execute(
+            text(
+                """
+                SELECT ticker, company_name, fiscal_year, accession_number, table_number, sql_table_name
+                FROM table_catalog_enriched
+                """
+            )
+        ).one()
+    assert row.ticker == "AAPL"
+    assert row.company_name == "Apple Inc."
+    assert row.fiscal_year == 2023
+    assert row.table_number == 1
 
 
 def test_rejects_non_sequential_tables(tmp_path):

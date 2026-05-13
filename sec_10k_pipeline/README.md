@@ -2,7 +2,7 @@
 
 Extract and catalog every HTML table from a full SEC EDGAR 10-K filing. The pipeline is built for analysts who need more than standardized financial statements: it parses the full HTML filing so narrative, compensation, properties, risk, debt, lease, tax, segment, and other tables are captured too.
 
-Each extracted table is saved as its own SQL table, and `table_catalog` records the numbered order and metadata for every extracted table.
+Each extracted table is saved as its own SQL table, `table_catalog` records the numbered order and metadata for every extracted table, and `table_catalog_enriched` joins that catalog to filing identity fields so multi-company databases are easy to inspect.
 
 ## What It Does
 
@@ -57,7 +57,7 @@ With supplemental XBRL companyfacts:
 python main.py --ticker AAPL --year 2023 --db sec_10k_tables.db --include-xbrl
 ```
 
-Expected console output includes company, CIK, filing date, accession number, number of tables extracted, number of financial statement tables, and database path.
+Expected console output includes company, filing ID, CIK, filing date, accession number, number of tables extracted, number of financial statement tables, database path, and the enriched catalog view name.
 
 ## Database Structure
 
@@ -95,6 +95,20 @@ One row per extracted HTML table:
 - `html_table_hash`
 - `extraction_notes`
 - `created_at`
+
+### `table_catalog_enriched`
+
+Read-only SQL view for analysis across multiple companies and years. It joins `table_catalog` to `filings`, so every catalog row includes:
+
+- `ticker`
+- `cik`
+- `company_name`
+- `form_type`
+- `fiscal_year`
+- `filing_date`
+- `accession_number`
+
+Use this view for normal analysis when one SQLite database contains multiple filings.
 
 ### Independent Extracted Tables
 
@@ -147,8 +161,17 @@ The classifier is intentionally transparent and easy to extend.
 View the catalog:
 
 ```sql
+SELECT ticker, fiscal_year, table_number, sql_table_name, section_guess, table_type_guess, row_count, column_count
+FROM table_catalog_enriched
+ORDER BY ticker, fiscal_year, table_number;
+```
+
+View tables for one company/year:
+
+```sql
 SELECT table_number, sql_table_name, section_guess, table_type_guess, row_count, column_count
-FROM table_catalog
+FROM table_catalog_enriched
+WHERE ticker = 'AAPL' AND fiscal_year = 2023
 ORDER BY table_number;
 ```
 
@@ -164,9 +187,9 @@ Find likely financial statement tables:
 
 ```sql
 SELECT table_number, sql_table_name, table_title_guess, table_type_guess
-FROM table_catalog
+FROM table_catalog_enriched
 WHERE financial_statement_flag = 1
-ORDER BY table_number;
+ORDER BY ticker, fiscal_year, table_number;
 ```
 
 Find possible duplicate HTML tables:
